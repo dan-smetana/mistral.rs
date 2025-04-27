@@ -345,6 +345,22 @@ impl DeviceMappedModelLoader for GgufDeviceMapLoaderInner<'_, '_> {
                 };
                 token_embd + output_norm + output
             }
+            GGUFArchitecture::Gemma3 => {
+                let token_embd = tensor_info_size_in_bytes!(
+                    self.model.tensor_info("token_embd.weight")?,
+                    DType::F32
+                );
+                let output_norm = tensor_info_size_in_bytes!(
+                    self.model.tensor_info("output_norm.weight")?,
+                    DType::F32
+                );
+                let output = if !self.model.has_tensor("output.weight") {
+                    tensor_info_size_in_bytes!(self.model.tensor_info("token_embd.weight")?)
+                } else {
+                    tensor_info_size_in_bytes!(self.model.tensor_info("output.weight")?)
+                };
+                token_embd + output_norm + output
+            }
             _ => unimplemented!(),
         };
         Ok(size_in_bytes)
@@ -562,6 +578,29 @@ impl DeviceMappedModelLoader for GgufDeviceMapLoaderInner<'_, '_> {
                     + tensor_info_size_in_bytes!(self.model.tensor_info("blk.0.ffn_down.bias")?);
 
                 attn_norm + ffn_norm + attn_q + attn_k + attn_v + attn_output + ffn_up + ffn_down
+            }
+            GGUFArchitecture::Gemma3 => {
+                let attn_norm = tensor_info_size_in_bytes!(
+                    self.model.tensor_info("blk.0.attn_norm.weight")?,
+                    DType::F32
+                );
+                let ffn_norm = tensor_info_size_in_bytes!(
+                    self.model.tensor_info("blk.0.ffn_norm.weight")?,
+                    DType::F32
+                );
+
+                let attn_qkv =
+                    tensor_info_size_in_bytes!(self.model.tensor_info("blk.0.attn_qkv.weight")?);
+                let attn_output = tensor_info_size_in_bytes!(self
+                    .model
+                    .tensor_info("blk.0.attn_output.weight")?);
+
+                let ffn_up =
+                    tensor_info_size_in_bytes!(self.model.tensor_info("blk.0.ffn_up.weight")?);
+                let ffn_down =
+                    tensor_info_size_in_bytes!(self.model.tensor_info("blk.0.ffn_down.weight")?);
+
+                attn_norm + ffn_norm + attn_qkv + attn_output + ffn_up + ffn_down
             }
             _ => unimplemented!(),
         };
